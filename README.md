@@ -1,24 +1,11 @@
-# vue-simplepeer
+### Description
 
-## Project setup
 ```
-npm install
-```
-
-### Compiles and hot-reloads for development
-```
-npm run serve
+A simple video/group call web application 
 ```
 
-### Compiles and minifies for production
+## Setup
 ```
-npm run build
+- npm install
+- npm run serve
 ```
-
-### Lints and fixes files
-```
-npm run lint
-```
-
-### Customize configuration
-See [Configuration Reference](https://cli.vuejs.org/config/).
