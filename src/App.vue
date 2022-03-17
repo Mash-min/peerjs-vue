@@ -2,6 +2,9 @@
   <div class="container mt-5">
     <div class="row">
       <small class="fw-bolder">Room ID: {{ myRoomID }}</small>
+      <ul>
+        <li v-for="peers in connectedPeers" :key="peers">{{ `(${peers}) joined the group` }}</li>
+      </ul>
       <div class="col-md-6">
         <small class="fw-bolder">You:</small>
         <div id="user-video"></div>
@@ -22,8 +25,8 @@
 
 <script>
 import Peer from 'peerjs'
-
-const peer = new Peer()
+import { v4 as uuidv4 } from 'uuid'
+const peer = new Peer(uuidv4())
 
 export default {
   name: 'App',
@@ -31,21 +34,21 @@ export default {
     return {
       roomID: '',
       myRoomID: '',
-      peerList: []
+      peerList: [],
+      connectedPeers: []
     }
   },
   mounted() {
     this.startCamera()
 
+    // Start peer 
     peer.on('open', (id) => {
       this.myRoomID = id
     })
 
+    // Triggers when someone tries to call
     peer.on('call', call => {
-      navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true
-      })
+      navigator.mediaDevices.getUserMedia({video: true, audio: true})
       .then(stream => {
         call.answer(stream)
         call.on('stream', stream => {
@@ -55,14 +58,37 @@ export default {
             video.play()
             document.getElementById('remote-video').append(video)
             this.peerList.push(call.peer)
+
+            // Send all peers to all connected users
+            this.connectedPeers.push(call.peer)
+            this.connectedPeers.forEach(roomID => {
+              const conn = peer.connect(roomID)
+              conn.on('open', () => {
+                conn.send({
+                  arrays: this.connectedPeers
+                })
+              })
+            })
+
           }
         })
+      })
+    }),
+
+    // Triggers when some tries to send data
+    peer.on('connection', (conn) => {
+      conn.on('data', data => {
+        console.log(data.arrays)
+        data.arrays.forEach(roomID => {
+          this.callUser(roomID)
+        }) 
       })
     })
 
   },
 
   methods: {
+    // Start host/user's camera
     startCamera() {
       navigator.mediaDevices.getUserMedia({
         video: true,
@@ -76,15 +102,21 @@ export default {
       })
     },
 
+    // Call user via roomID
     callUser(roomId) {
       navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true
       })
       .then(stream => {
+        this.roomID = ''
         let call = peer.call(roomId, stream)
         call.on('stream', stream => {
           if(!this.peerList.includes(call.peer)) {
+            console.log({ 
+              stream: stream,
+              call: call 
+            })
             const video = document.createElement('video')
             this.addRemoteVideo(video, stream)
             this.peerList.push(call.peer)
@@ -93,11 +125,12 @@ export default {
       })
     },
 
+    // Add connected user's video
     addRemoteVideo(video, stream) {
       video.srcObject = stream
       document.getElementById('remote-video').append(video)
       video.play()
-    }
+    },
   }
 }
 </script>
