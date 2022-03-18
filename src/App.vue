@@ -53,11 +53,11 @@ onMounted(() => {
     .then(stream => {
       call.answer(stream)
       call.on('stream', (stream) => {
-        connectedPeers.value.push(call.peer)
         console.log(`${call.peer} joined the chat`)
         createVideoElement(stream, 'members', call.peer)
         broadcastPeer(call.peer)
       })
+      connectedPeers.value.push(call.peer)
     })
   })
 
