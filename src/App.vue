@@ -1,6 +1,7 @@
 <template>
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container-fluid container">
+      <button class="btn btn-primary" @click="createRoom">Create room</button>
       <form @submit.prevent="joinRoom(newRoomID)">
         <div class="input-group">
           <input type="text" class="form-control" placeholder="Enter room ID" v-model="newRoomID">
@@ -12,12 +13,11 @@
   <div class="container mt-5">
     <div class="row">
       <small class="fw-bolder">Room ID: {{ roomID }}</small>
-      <!-- <ul>
+      <ul>
         <li v-for="peer in connectedPeers" :key="peer">
-          <small v-if="peer == myRoomID">You joined the conversation.</small>
-          <small v-else>{{ peer }} joined the conversation.</small>
+          <small>{{ peer }} joined the conversation.</small>
         </li>
-      </ul> -->
+      </ul>
       <div class="col-md-6">
         <small class="fw-bolder">You:</small>
         <div id="host"></div>
@@ -41,12 +41,13 @@ const roomID = ref('')
 const connectedPeers = ref([])
 
 onMounted(() => {
+  // Start peer
+  peer.on('open', id => roomID.value = id)
+
+  // Start user camera
   openCamera()
-
-  peer.on('open', (id) => {
-    roomID.value = id
-  })
-
+  
+  // Triggers when someone tries to connect to our room
   peer.on('call', call => {
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
     .then(stream => {
@@ -60,6 +61,7 @@ onMounted(() => {
     })
   })
 
+  // Triggers when someone tries to send data
   peer.on('connection', conn => {
     conn.on('data', data => {
       if(!connectedPeers.value.includes(data)) joinRoom(data)
@@ -68,26 +70,25 @@ onMounted(() => {
   })
 })
 
-// Functions
+//  Start user Camera
 const openCamera = () => {
-  // navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-  // .then(stream => {
-  //   const video = document.createElement('video')
-  //   video.srcObject = stream
-  //   video.play()
-  //   addVideoElement(video, 'host')
-  // })
+  navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+  .then(stream => {
+    createVideoElement(stream, 'host', 'host-video')
+  })
 }
 
-const createVideoElement = (stream, domID, peerID) => {
+// Create video element
+const createVideoElement = (stream, domID, id) => {
   const video = document.createElement('video')
   video.srcObject = stream
   video.play()
-  video.setAttribute('id', peerID)
+  video.setAttribute('id', id)
   video.setAttribute('class', 'member-video')
   document.getElementById(domID).append(video)
 }
 
+// Join to other users room
 const joinRoom = (id) => {
   navigator.mediaDevices.getUserMedia({ video: true, audio: false })
   .then(stream => {
@@ -97,21 +98,11 @@ const joinRoom = (id) => {
         createVideoElement(stream, 'members', call.peer)
       })
     }
+    
   })
 }
 
-// const sendAllPeers = (connectedPeers) => {
-//   connectedPeers.forEach(peerID => {
-//     const conn = peer.connect(peerID)
-//     conn.on('open', () => {
-//       conn.send({
-//         string: "This is a message from the host",
-//         arrays: [...connectedPeers]
-//       })
-//     })
-//   })
-// }
-
+// Broadcast newly joined peer to all connected user
 const broadcastPeer = (peerID) => {
   connectedPeers.value.forEach(connectedPeer => {
     const conn = peer.connect(connectedPeer)
