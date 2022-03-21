@@ -1,41 +1,38 @@
 <template>
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container mt-5">
+    <div class="row">
     <div class="container-fluid container">
-      <button class="btn btn-primary" @click="createRoom">Create room</button>
       <form @submit.prevent="joinRoom(newRoomID)">
         <div class="input-group">
           <input type="text" class="form-control" placeholder="Enter room ID" v-model="newRoomID">
-          <button class="btn btn-primary" type="submit">Call</button>
+          <button class="btn btn-primary" type="submit">Connect</button>
         </div>
       </form>
     </div>
-  </nav>
-  <div class="container mt-5">
-    <div class="row">
-      <h5>Room ID: <span class="text-success">{{ roomID }}</span></h5>
-      <ul>
-        <small class="fw-bolder">Peers:</small>
-        <li v-for="peer in connectedPeers" :key="peer">
-          <small class="fw-bolder">
-            {{ peer }}
-          </small>
-        </li>
-      </ul>
-      <div class="col-md-6">
+      <div class="col-md-4">
         <small class="fw-bolder">You:</small>
         <div id="host"></div>
+      </div>
+      <div class="col-md-4">
+        <ul>
+          <small class="fw-bolder">Connected Peers:</small>
+          <li v-for="peer in connectedPeers" :key="peer">
+            <small class="fw-bolder">
+              {{ peer }}
+            </small>
+          </li>
+        </ul>
+      </div>
+      <div class="col-md-4">
+        <ul>
+          <li v-for="message in messages" :key="message">
+            {{ message }}
+          </li>
+        </ul>
       </div>
       <div class="col-md-12">
         <small class="fw-bolder">Connected users:</small>
         <div id="members"></div>
-      </div>
-      <div class="col-md-4">
-        <small class="fw-bolder">Chat:</small>
-        <div class="card" v-for="message in messages" :key="message">
-          <div class="card-body">
-            {{ message.message }}
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -50,6 +47,7 @@ const peer = new Peer(uuidv4())
 const newRoomID  = ref('')
 const roomID = ref('')
 const connectedPeers = ref([])
+const messages = ref([])
 
 onMounted(() => {
   // Start peer
@@ -64,8 +62,6 @@ onMounted(() => {
       call.answer(stream)
       call.on('stream', (stream) => {
         createVideoElement(stream, 'members', call.peer)
-        broadcastPeer(call.peer)
-        connectedPeers.value.push(call.peer)  
       })
     })
   })
@@ -73,8 +69,14 @@ onMounted(() => {
   // Triggers when someone tries to send data
   peer.on('connection', conn => {
     conn.on('data', response => {
-      // joinRoom(response.data.peerID)
-      // if(!connectedPeers.value.includes(response.data.peerID)) joinRoom(response.data.peerID)
+      if(response.data.type == 'broadcast') {
+        connectedPeers.value = response.data.connectedPeers
+        joinRoom(response.data.peerID)
+      }
+      
+      if(response.data.type == 'msg') {
+        messages.value.push(response.data.message)
+      }
     })
   })
 })
@@ -107,21 +109,6 @@ const joinRoom = (id) => {
         createVideoElement(stream, 'members', call.peer)
       })
     }
-  })
-}
-
-// Broadcast newly joined peer to all connected user
-const broadcastPeer = (peerID) => {
-  connectedPeers.value.forEach(connectedPeer => {
-    const conn = peer.connect(connectedPeer)
-    conn.on('open', () => {
-      conn.send({
-        data: {
-          type: 'broadcast',
-          peerID: peerID
-        }
-      })
-    })
   })
 }
 
